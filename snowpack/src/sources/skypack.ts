@@ -3,12 +3,15 @@ import path from 'path';
 import {
   buildNewPackage,
   fetchCDN,
+  installTypes,
   lookupBySpecifier,
   rollupPluginSkypack,
   SKYPACK_ORIGIN,
 } from 'skypack';
 import {logger} from '../logger';
+import {isJavaScript} from '../util';
 import {ImportMap, LockfileManifest, PackageSource, SnowpackConfig} from '../types/snowpack';
+import {getInstallTargets} from '../commands/install';
 
 const fetchedPackages = new Set<string>();
 function logFetching(packageName: string) {
@@ -40,7 +43,35 @@ function parseRawPackageImport(spec: string): [string, string | null] {
  * from the CDN during both development and optimized building.
  */
 export default {
-  async prepare() {
+  async prepare(commandOptions) {
+    const {config, lockfile} = commandOptions;
+    const installTargets = await getInstallTargets(config);
+    if (installTargets.length === 0) {
+      logger.info('Nothing to install.');
+      return;
+    }
+
+    for (const t of installTargets) {
+      const spec = t.specifier;
+      const [packageName] = parseRawPackageImport(spec);
+      let lookupSpec: string = packageName;
+      if (lockfile && lockfile.imports[spec]) {
+        // TODO!
+        // lookupSpec = lockfile.imports[spec];
+      } else {
+        // TODO: When config.root is added, look up package.json "dependencies" & "devDependencies"
+        // from the root and fallback to those if lockfile.dependencies[packageName] doesn't exist.
+        const _packageSemver = lockfile?.dependencies && lockfile.dependencies[packageName];
+        if (!_packageSemver) {
+          logFetching(packageName);
+        } else {
+          // TODO!
+          // lookupSpec += '@' + _packageSemver;
+        }
+      }
+      await installTypes(lookupSpec);
+    }
+
     // Skypack resolves imports on the fly, so no import map needed.
     return {imports: {}};
   },
@@ -55,14 +86,14 @@ export default {
     config.installOptions.lockfile = lockfile || undefined;
     config.installOptions.rollup = config.installOptions.rollup || {};
     config.installOptions.rollup.plugins = config.installOptions.rollup.plugins || [];
-    config.installOptions.rollup.plugins.push(rollupPluginSkypack({installTypes: false}) as Plugin);
+    config.installOptions.rollup.plugins.push(rollupPluginSkypack({}) as Plugin);
   },
 
   async load(
     spec: string,
     {config, lockfile}: {config: SnowpackConfig; lockfile: LockfileManifest | null},
-  ): Promise<string> {
-    let body: string;
+  ): Promise<string | Buffer> {
+    let body: Buffer;
     if (
       spec.startsWith('-/') ||
       spec.startsWith('pin/') ||
@@ -98,10 +129,15 @@ export default {
         body = lookupResponse.body;
       }
     }
+    const ext = path.extname(spec);
+    if (!ext || isJavaScript(spec)) {
+      return body
+        .toString()
+        .replace(/(from|import) \'\//g, `$1 '${config.buildOptions.webModulesUrl}/`)
+        .replace(/(from|import) \"\//g, `$1 "${config.buildOptions.webModulesUrl}/`);
+    }
 
-    return (body as string)
-      .replace(/(from|import) \'\//g, `$1 '${config.buildOptions.webModulesUrl}/`)
-      .replace(/(from|import) \"\//g, `$1 "${config.buildOptions.webModulesUrl}/`);
+    return body;
   },
 
   resolvePackageImport(missingPackage: string, _: ImportMap, config: SnowpackConfig): string {

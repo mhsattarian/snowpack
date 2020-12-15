@@ -11,6 +11,7 @@ export interface ImportMap {
 
 export const GLOBAL_CACHE_DIR = globalCacheDir('skypack');
 export const RESOURCE_CACHE = path.join(GLOBAL_CACHE_DIR, 'pkg-cache-3.0');
+console.log(RESOURCE_CACHE);
 export const SKYPACK_ORIGIN = `https://cdn.skypack.dev`;
 export const HAS_CDN_HASH_REGEX = /\-[a-zA-Z0-9]{16,}/;
 
