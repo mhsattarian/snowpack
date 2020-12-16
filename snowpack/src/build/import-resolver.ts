@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import {SnowpackConfig} from '../types/snowpack';
-import {findMatchingAliasEntry, getExtensionMatch, hasExtension, isRemoteUrl, replaceExtension} from '../util';
+import {
+  addExtension,
+  findMatchingAliasEntry,
+  getExtensionMatch,
+  hasExtension,
+  isRemoteUrl,
+} from '../util';
 import {getUrlForFile} from './file-urls';
 
 /** Perform a file disk lookup for the requested import specifier. */
@@ -23,8 +29,9 @@ function resolveSourceSpecifier(spec: string, stats: fs.Stats | false, config: S
   }
   // Transform the file extension (from input to output)
   const extensionMatch = getExtensionMatch(spec, config._extensionMap);
+  console.log(spec, extensionMatch);
   if (extensionMatch) {
-    spec = replaceExtension(spec, extensionMatch[0], extensionMatch[1]);
+    spec = addExtension(spec, extensionMatch[1]);
   }
   // Lazy check to handle imports that are missing file extensions
   if (!stats && !hasExtension(spec, '.js') && !hasExtension(spec, '.css')) {
