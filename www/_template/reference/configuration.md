@@ -306,7 +306,7 @@ Example:
 ```js
 // snowpack.config.json
 {
-  alias: {
+  "alias": {
     // Type 1: Package Import Alias
     "lodash": "lodash-es",
     "react": "preact/compat",
